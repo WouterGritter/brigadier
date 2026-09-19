@@ -45,7 +45,7 @@ public class RequiredArgumentBuilder<S, T> extends ArgumentBuilder<S, RequiredAr
     }
 
     public ArgumentCommandNode<S, T> build() {
-        final ArgumentCommandNode<S, T> result = new ArgumentCommandNode<>(getName(), getType(), getCommand(), getRequirement(), getRedirect(), getRedirectModifier(), isFork(), getSuggestionsProvider());
+        final ArgumentCommandNode<S, T> result = new ArgumentCommandNode<>(getName(), getType(), getCommand(), getRequirement(), getContextRequirement(), getRedirect(), getRedirectModifier(), isFork(), getSuggestionsProvider()); // PaperMC - context-aware requirements
 
         for (final CommandNode<S> argument : getArguments()) {
             result.addChild(argument);

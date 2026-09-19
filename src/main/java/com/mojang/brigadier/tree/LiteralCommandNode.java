@@ -4,6 +4,7 @@
 package com.mojang.brigadier.tree;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.ImmutableStringReader;
 import com.mojang.brigadier.RedirectModifier;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -18,6 +19,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 public class LiteralCommandNode<S> extends CommandNode<S> {
@@ -29,6 +31,14 @@ public class LiteralCommandNode<S> extends CommandNode<S> {
         this.literal = literal;
         this.literalLowerCase = literal.toLowerCase(Locale.ROOT);
     }
+
+    // PaperMC start - context-aware requirements
+    public LiteralCommandNode(final String literal, final Command<S> command, final Predicate<S> requirement, final BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> contextRequirement, final CommandNode<S> redirect, final RedirectModifier<S> modifier, final boolean forks) {
+        super(command, requirement, contextRequirement, redirect, modifier, forks);
+        this.literal = literal;
+        this.literalLowerCase = literal.toLowerCase(Locale.ROOT);
+    }
+    // PaperMC end - context-aware requirements
 
     public String getLiteral() {
         return literal;
@@ -53,23 +63,23 @@ public class LiteralCommandNode<S> extends CommandNode<S> {
 
     private int parse(final StringReader reader) {
         final int start = reader.getCursor();
-        if (reader.canRead(literal.length())) {
+        // PaperMC start - avoid substring allocation
+        if (literal.regionMatches(0, reader.getString(), start, literal.length())) {
             final int end = start + literal.length();
-            if (reader.getString().substring(start, end).equals(literal)) {
-                reader.setCursor(end);
-                if (!reader.canRead() || reader.peek() == ' ') {
-                    return end;
-                } else {
-                    reader.setCursor(start);
-                }
+            reader.setCursor(end);
+            if (!reader.canRead() || reader.peek() == ' ') {
+                return end;
+            } else {
+                reader.setCursor(start);
             }
         }
+        // PaperMC end - avoid substring allocation
         return -1;
     }
 
     @Override
     public CompletableFuture<Suggestions> listSuggestions(final CommandContext<S> context, final SuggestionsBuilder builder) {
-        if (literalLowerCase.startsWith(builder.getRemainingLowerCase())) {
+        if (literalLowerCase.regionMatches(true, 0, builder.getRemainingLowerCase(), 0, builder.getRemainingLowerCase().length())) { // PaperMC - regionMatches instead of startsWith
             return builder.suggest(literal).buildFuture();
         } else {
             return Suggestions.empty();
@@ -108,6 +118,7 @@ public class LiteralCommandNode<S> extends CommandNode<S> {
     public LiteralArgumentBuilder<S> createBuilder() {
         final LiteralArgumentBuilder<S> builder = LiteralArgumentBuilder.literal(this.literal);
         builder.requires(getRequirement());
+        builder.requiresWithContext(getContextRequirement()); // PaperMC - context-aware requirements
         builder.forward(getRedirect(), getRedirectModifier(), isFork());
         if (getCommand() != null) {
             builder.executes(getCommand());

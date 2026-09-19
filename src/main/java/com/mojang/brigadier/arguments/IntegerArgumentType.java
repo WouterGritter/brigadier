@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 public class IntegerArgumentType implements ArgumentType<Integer> {
+    private static final IntegerArgumentType ALL = new IntegerArgumentType(Integer.MIN_VALUE, Integer.MAX_VALUE); // PaperMC - cache common argument types
     private static final Collection<String> EXAMPLES = Arrays.asList("0", "123", "-123");
 
     private final int minimum;
@@ -22,7 +23,7 @@ public class IntegerArgumentType implements ArgumentType<Integer> {
     }
 
     public static IntegerArgumentType integer() {
-        return integer(Integer.MIN_VALUE);
+        return ALL; // PaperMC - cache common argument types
     }
 
     public static IntegerArgumentType integer(final int min) {

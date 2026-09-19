@@ -36,6 +36,7 @@ public class CommandContext<S> {
     private final CommandNode<S> rootNode;
     private final List<ParsedCommandNode<S>> nodes;
     private final StringRange range;
+    private CommandContext<S> parent; // PaperMC - track parent context
     private final CommandContext<S> child;
     /**
      * Modifier of source. Will be run only when context has children (i.e. is not last in chain).
@@ -71,8 +72,33 @@ public class CommandContext<S> {
         if (this.source == source) {
             return this;
         }
-        return new CommandContext<>(source, input, arguments, command, rootNode, nodes, range, child, modifier, forks);
+        // PaperMC start - track parent context
+        final CommandContext<S> copy = new CommandContext<>(source, input, arguments, command, rootNode, nodes, range, child, modifier, forks);
+        copy.parent = parent;
+        return copy;
+        // PaperMC end - track parent context
     }
+
+    // PaperMC start - track parent context
+    void setParent(final CommandContext<S> parent) {
+        if (this.parent != null) {
+            throw new IllegalStateException("Context already has a parent context");
+        }
+        this.parent = parent;
+    }
+
+    /**
+     * Gets the context this context was redirected from, i.e. the context whose {@link #getChild()} is this context.
+     *
+     * <p>Note that the parent is intentionally not part of {@link #equals(Object)} and {@link #hashCode()}: it is
+     * derived from the parent's child link, and including it would recurse endlessly.</p>
+     *
+     * @return the parent context, or {@code null} if this is the top-level context
+     */
+    public CommandContext<S> getParent() {
+        return parent;
+    }
+    // PaperMC end - track parent context
 
     public CommandContext<S> getChild() {
         return child;
@@ -157,6 +183,17 @@ public class CommandContext<S> {
     public List<ParsedCommandNode<S>> getNodes() {
         return nodes;
     }
+
+    // PaperMC start - expose arguments
+    /**
+     * Gets all parsed arguments of this context, keyed by argument name. The returned map must not be modified.
+     *
+     * @return the parsed arguments
+     */
+    public Map<String, ParsedArgument<S, ?>> getArguments() {
+        return arguments;
+    }
+    // PaperMC end - expose arguments
 
     public boolean hasNodes() {
         return !nodes.isEmpty();

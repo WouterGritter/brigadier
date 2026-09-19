@@ -15,6 +15,7 @@ import java.util.Map;
 
 public class CommandContextBuilder<S> {
     private final Map<String, ParsedArgument<S, ?>> arguments = new LinkedHashMap<>();
+    private final CommandContextBuilder<S> parent; // PaperMC - track parent context
     private final CommandNode<S> rootNode;
     private final List<ParsedCommandNode<S>> nodes = new ArrayList<>();
     private final CommandDispatcher<S> dispatcher;
@@ -26,11 +27,27 @@ public class CommandContextBuilder<S> {
     private boolean forks;
 
     public CommandContextBuilder(final CommandDispatcher<S> dispatcher, final S source, final CommandNode<S> rootNode, final int start) {
+        this(dispatcher, source, null, rootNode, start);
+    }
+
+    // PaperMC start - track parent context
+    public CommandContextBuilder(final CommandDispatcher<S> dispatcher, final S source, final CommandContextBuilder<S> parent, final CommandNode<S> rootNode, final int start) {
+        this.parent = parent;
         this.rootNode = rootNode;
         this.dispatcher = dispatcher;
         this.source = source;
         this.range = StringRange.at(start);
     }
+
+    /**
+     * Gets the context this context was redirected from, i.e. the context whose {@link #getChild()} is this context.
+     *
+     * @return the parent context, or {@code null} if this is the top-level context
+     */
+    public CommandContextBuilder<S> getParent() {
+        return parent;
+    }
+    // PaperMC end - track parent context
 
     public CommandContextBuilder<S> withSource(final S source) {
         this.source = source;
@@ -68,7 +85,7 @@ public class CommandContextBuilder<S> {
     }
 
     public CommandContextBuilder<S> copy() {
-        final CommandContextBuilder<S> copy = new CommandContextBuilder<>(dispatcher, source, rootNode, range.getStart());
+        final CommandContextBuilder<S> copy = new CommandContextBuilder<>(dispatcher, source, parent, rootNode, range.getStart()); // PaperMC - track parent context
         copy.command = command;
         copy.arguments.putAll(arguments);
         copy.nodes.addAll(nodes);
@@ -104,7 +121,14 @@ public class CommandContextBuilder<S> {
     }
 
     public CommandContext<S> build(final String input) {
-        return new CommandContext<>(source, input, arguments, command, rootNode, nodes, range, child == null ? null : child.build(input), modifier, forks);
+        // PaperMC start - track parent context
+        final CommandContext<S> builtChild = child == null ? null : child.build(input);
+        final CommandContext<S> built = new CommandContext<>(source, input, arguments, command, rootNode, nodes, range, builtChild, modifier, forks);
+        if (builtChild != null) {
+            builtChild.setParent(built);
+        }
+        return built;
+        // PaperMC end - track parent context
     }
 
     public CommandDispatcher<S> getDispatcher() {

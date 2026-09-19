@@ -297,7 +297,7 @@ public class CommandDispatcher<S> {
         List<ParseResults<S>> potentials = null;
         final int cursor = originalReader.getCursor();
 
-        for (final CommandNode<S> child : node.getRelevantNodes(originalReader)) {
+        for (final CommandNode<S> child : node.getRelevantNodes(originalReader, source)) { // PaperMC - source-aware relevant nodes
             if (!child.canUse(source)) {
                 continue;
             }
@@ -327,11 +327,15 @@ public class CommandDispatcher<S> {
             if (reader.canRead(child.getRedirect() == null ? 2 : 1)) {
                 reader.skip();
                 if (child.getRedirect() != null) {
-                    final CommandContextBuilder<S> childContext = new CommandContextBuilder<>(this, source, child.getRedirect(), reader.getCursor());
+                    final CommandContextBuilder<S> childContext = new CommandContextBuilder<>(this, source, context, child.getRedirect(), reader.getCursor()); // PaperMC - track parent context
                     final ParseResults<S> parse = parseNodes(child.getRedirect(), reader, childContext);
                     context.withChild(parse.getContext());
-                    return new ParseResults<>(context, parse.getReader(), parse.getExceptions());
-                } else {
+                    // PaperMC start - context-aware requirements
+                    if (child.canUse(context, parse.getReader())) {
+                        return new ParseResults<>(context, parse.getReader(), parse.getExceptions());
+                    }
+                } else if (child.canUse(context, reader)) {
+                    // PaperMC end - context-aware requirements
                     final ParseResults<S> parse = parseNodes(child, reader, context);
                     if (potentials == null) {
                         potentials = new ArrayList<>(1);
@@ -339,6 +343,15 @@ public class CommandDispatcher<S> {
                     potentials.add(parse);
                 }
             } else {
+                // PaperMC start - execute the redirect target's command for childless redirects
+                final CommandNode<S> redirect = child.getRedirect();
+                if (redirect != null && redirect.getCommand() != null) {
+                    context.withCommand(redirect.getCommand());
+                }
+                // PaperMC end - execute the redirect target's command for childless redirects
+                if (!child.canUse(context, reader)) { // PaperMC - context-aware requirements
+                    continue;
+                }
                 if (potentials == null) {
                     potentials = new ArrayList<>(1);
                 }
@@ -544,16 +557,17 @@ public class CommandDispatcher<S> {
             futures[i++] = future;
         }
 
-        final CompletableFuture<Suggestions> result = new CompletableFuture<>();
-        CompletableFuture.allOf(futures).thenRun(() -> {
+        // PaperMC start - always complete the returned future, even if some suggestion futures fail
+        return CompletableFuture.allOf(futures).handle((voidResult, exception) -> {
             final List<Suggestions> suggestions = new ArrayList<>();
             for (final CompletableFuture<Suggestions> future : futures) {
-                suggestions.add(future.join());
+                if (!future.isCompletedExceptionally()) {
+                    suggestions.add(future.join());
+                }
             }
-            result.complete(Suggestions.merge(fullInput, suggestions));
+            return Suggestions.merge(fullInput, suggestions);
         });
-
-        return result;
+        // PaperMC end - always complete the returned future, even if some suggestion futures fail
     }
 
     /**

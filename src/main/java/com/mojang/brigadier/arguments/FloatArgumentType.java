@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 public class FloatArgumentType implements ArgumentType<Float> {
+    private static final FloatArgumentType ALL = new FloatArgumentType(-Float.MAX_VALUE, Float.MAX_VALUE); // PaperMC - cache common argument types
     private static final Collection<String> EXAMPLES = Arrays.asList("0", "1.2", ".5", "-1", "-.5", "-1234.56");
 
     private final float minimum;
@@ -22,7 +23,7 @@ public class FloatArgumentType implements ArgumentType<Float> {
     }
 
     public static FloatArgumentType floatArg() {
-        return floatArg(-Float.MAX_VALUE);
+        return ALL; // PaperMC - cache common argument types
     }
 
     public static FloatArgumentType floatArg(final float min) {
