@@ -8,7 +8,7 @@ import com.mojang.brigadier.context.CommandContextBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.escapeIfRequired;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
@@ -17,12 +17,12 @@ import static com.mojang.brigadier.arguments.StringArgumentType.word;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.Silent.class)
 public class StringArgumentTypeTest {
     @Mock
     private CommandContextBuilder<Object> context;

@@ -11,15 +11,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static com.mojang.brigadier.arguments.FloatArgumentType.floatArg;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.fail;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.Silent.class)
 public class FloatArgumentTypeTest {
     private FloatArgumentType type;
     @Mock
@@ -76,6 +76,6 @@ public class FloatArgumentTypeTest {
         assertThat(floatArg(), hasToString("float()"));
         assertThat(floatArg(-100), hasToString("float(-100.0)"));
         assertThat(floatArg(-100, 100), hasToString("float(-100.0, 100.0)"));
-        assertThat(floatArg(Integer.MIN_VALUE, 100), hasToString("float(-2.14748365E9, 100.0)"));
+        assertThat(floatArg(Integer.MIN_VALUE, 100), hasToString("float(" + (float) Integer.MIN_VALUE + ", 100.0)")); // PaperMC - Float.toString output changed in JDK 19 (JDK-4511638)
     }
 }

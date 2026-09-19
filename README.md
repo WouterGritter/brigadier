@@ -1,51 +1,49 @@
-# Brigadier [![Latest release](https://img.shields.io/github/release/Mojang/brigadier.svg)](https://github.com/Mojang/brigadier/releases/latest) [![License](https://img.shields.io/github/license/Mojang/brigadier.svg)](https://github.com/Mojang/brigadier/blob/master/LICENSE)
+# Brigadier (PaperMC fork)
 
-Brigadier is a command parser & dispatcher, designed and developed for Minecraft: Java Edition and now freely available for use elsewhere under the MIT license.
+This is [PaperMC](https://papermc.io)'s fork of [Mojang's Brigadier](https://github.com/Mojang/brigadier), the command
+parser & dispatcher designed and developed for Minecraft: Java Edition and freely available under the MIT license.
+
+It is the single brigadier used by both [Paper](https://github.com/PaperMC/Paper) and
+[Velocity](https://github.com/PaperMC/Velocity).
 
 # Installation
-Brigadier is available to Maven & Gradle via `libraries.minecraft.net`. Its group is `com.mojang`, and artifact name is `brigadier`.
+The fork is published to `repo.papermc.io`. Its group is `io.papermc`, and artifact name is `brigadier`. Versions follow
+the scheme `<vanilla brigadier version>+papermc.<fork revision>`; the vanilla part is the version shipped by the Minecraft
+version Paper targets.
 
 ## Gradle
-First include our repository:
-```groovy
-maven {
-    url "https://libraries.minecraft.net"
+```kotlin
+repositories {
+    maven("https://repo.papermc.io/repository/maven-public/")
+}
+
+dependencies {
+    implementation("io.papermc:brigadier:(the latest version)")
 }
 ```
 
-And then use this library (change `(the latest version)` to the latest version!):
-```groovy
-compile 'com.mojang:brigadier:(the latest version)'
-```
-
 ## Maven
-First include our repository:
 ```xml
 <repository>
-  <id>minecraft-libraries</id>
-  <name>Minecraft Libraries</name>
-  <url>https://libraries.minecraft.net</url>
+  <id>papermc</id>
+  <url>https://repo.papermc.io/repository/maven-public/</url>
 </repository>
 ```
 
-And then use this library (change `(the latest version)` to the latest version!):
 ```xml
 <dependency>
-    <groupId>com.mojang</groupId>
+    <groupId>io.papermc</groupId>
     <artifactId>brigadier</artifactId>
     <version>(the latest version)</version>
 </dependency>
 ```
 
 # Contributing
-Contributions are welcome! :D
+Contributions are welcome! Changes that are not specific to Paper or Velocity should ideally be proposed
+[upstream](https://github.com/Mojang/brigadier) as well, so this fork can stay as small as possible.
 
-Most contributions will require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to,
-and actually do, grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+The original project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/);
+this fork follows [PaperMC's community guidelines](https://papermc.io/community/guidelines).
 
 # Usage
 At the heart of Brigadier, you need a `CommandDispatcher<S>`, where `<S>` is any custom object you choose to identify a "command source".

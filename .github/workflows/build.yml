@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: ./gradlew build
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+      - name: Publish
+        if: github.event_name == 'push' && github.repository == 'PaperMC/brigadier'
+        run: ./gradlew publish -Psnapshot=${{ github.ref_type != 'tag' }}
+        env:
+          ORG_GRADLE_PROJECT_papermcUsername: ${{ secrets.DEPLOY_USER }}
+          ORG_GRADLE_PROJECT_papermcPassword: ${{ secrets.DEPLOY_PASS }}

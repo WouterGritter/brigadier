@@ -15,7 +15,7 @@ import org.junit.Test;
 
 import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 public class RootCommandNodeTest extends AbstractCommandNodeTest {

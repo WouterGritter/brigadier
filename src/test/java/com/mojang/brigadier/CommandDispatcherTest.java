@@ -18,7 +18,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,20 +32,20 @@ import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.argThat;
-import static org.mockito.Matchers.eq;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.Silent.class)
 public class CommandDispatcherTest {
     private CommandDispatcher<Object> subject;
     @Mock
@@ -584,7 +584,7 @@ public class CommandDispatcherTest {
             assertThat(ex, is(exception));
         }
 
-        verifyZeroInteractions(command);
+        verifyNoInteractions(command);
         verify(consumer).onCommandComplete(any(), eq(false), eq(0));
         verifyNoMoreInteractions(consumer);
     }
@@ -604,7 +604,7 @@ public class CommandDispatcherTest {
 
         assertThat(subject.execute("redirect noop", source), is(0));
 
-        verifyZeroInteractions(command);
+        verifyNoInteractions(command);
         verify(consumer).onCommandComplete(any(), eq(false), eq(0));
         verifyNoMoreInteractions(consumer);
     }
