@@ -1,42 +1,14 @@
-# Brigadier (PaperMC fork)
+# Brigadier (fork)
 
-This is [PaperMC](https://papermc.io)'s fork of [Mojang's Brigadier](https://github.com/Mojang/brigadier), the command
+This is a fork of [Mojang's Brigadier](https://github.com/Mojang/brigadier), the command
 parser & dispatcher designed and developed for Minecraft: Java Edition and freely available under the MIT license.
 
-It is the single brigadier used by both [Paper](https://github.com/PaperMC/Paper) and
+Reconciling the brigadier patches used by Paper and the brigadier fork by Velocity is in its draft phase.
+This fork aims to be the single brigadier used by both [Paper](https://github.com/PaperMC/Paper) and
 [Velocity](https://github.com/PaperMC/Velocity).
 
 # Installation
-The fork is published to `repo.papermc.io`. Its group is `io.papermc`, and artifact name is `brigadier`. Versions follow
-the scheme `<vanilla brigadier version>+papermc.<fork revision>`; the vanilla part is the version shipped by the Minecraft
-version Paper targets.
-
-## Gradle
-```kotlin
-repositories {
-    maven("https://repo.papermc.io/repository/maven-public/")
-}
-
-dependencies {
-    implementation("io.papermc:brigadier:(the latest version)")
-}
-```
-
-## Maven
-```xml
-<repository>
-  <id>papermc</id>
-  <url>https://repo.papermc.io/repository/maven-public/</url>
-</repository>
-```
-
-```xml
-<dependency>
-    <groupId>io.papermc</groupId>
-    <artifactId>brigadier</artifactId>
-    <version>(the latest version)</version>
-</dependency>
-```
+The fork is currently not (yet) published.
 
 # Contributing
 Contributions are welcome! Changes that are not specific to Paper or Velocity should ideally be proposed
