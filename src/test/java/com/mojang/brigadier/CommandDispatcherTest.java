@@ -4,6 +4,7 @@
 package com.mojang.brigadier;
 
 import com.google.common.collect.Lists;
+import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -38,6 +39,7 @@ import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
 import static com.mojang.brigadier.builder.RequiredArgumentBuilder.argument;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -818,9 +820,104 @@ public class CommandDispatcherTest {
         subject.register(literal("foo").then(bar).then(baz));
 
         final ParseResults<Object> parseResults = subject.parse("foo b", source);
-        final Suggestions suggestions = subject.getCompletionSuggestions(parseResults).join();
-        final Collection<String> suggestionCollection = suggestions.getList().stream().map(Suggestion::getText).collect(Collectors.toList());
-        assertThat(Lists.newArrayList("bar"), is(suggestionCollection));
+        final CompletableFuture<Suggestions> result = subject.getCompletionSuggestions(parseResults);
+        // The failure is propagated rather than silently dropping that node's suggestions, but the future must complete.
+        assertThat(result.isDone(), is(true));
+        assertThat(result.isCompletedExceptionally(), is(true));
+        try {
+            result.join();
+            fail();
+        } catch (final java.util.concurrent.CompletionException ex) {
+            assertThat(ex.getCause(), is(instanceOf(IllegalArgumentException.class)));
+        }
+    }
+
+    @Test
+    public void testCompletionSkipsImpermissibleRootCommands() {
+        subject.register(literal("foo").executes(command));
+        subject.register(literal("fob").requires(s -> false).executes(command));
+        subject.register(literal("fizz").then(literal("hidden").requires(s -> false)));
+
+        final Suggestions root = subject.getCompletionSuggestions(subject.parse("f", source)).join();
+        assertThat(root.getList().stream().map(Suggestion::getText).collect(Collectors.toList()), equalTo(Lists.newArrayList("fizz", "foo")));
+        // only root-level commands are filtered, deeper nodes are left to the platform (matches Paper's behavior)
+        final Suggestions nested = subject.getCompletionSuggestions(subject.parse("fizz ", source)).join();
+        assertThat(nested.getList().stream().map(Suggestion::getText).collect(Collectors.toList()), equalTo(Lists.newArrayList("hidden")));
+    }
+
+    @Test
+    public void testNonRecoverableExceptionAbortsParsing() throws Exception {
+        final CommandSyntaxException fatal = new CommandSyntaxException(CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherParseException(), new LiteralMessage("nope")) {
+            @Override
+            public boolean isRecoverable() {
+                return false;
+            }
+        };
+        final ArgumentType<Object> fatalType = reader -> {
+            throw fatal;
+        };
+        final Command<Object> fallback = mock(Command.class);
+        subject.register(literal("foo")
+            .then(argument("fatal", fatalType).executes(command))
+            .then(argument("fallback", StringArgumentType.word()).executes(fallback)));
+
+        final ParseResults<Object> parse = subject.parse("foo bar", source);
+        assertThat(parse.getExceptions().size(), is(1));
+        assertThat(parse.getExceptions().values().iterator().next(), is(fatal));
+        assertThat(parse.getContext().getNodes().size(), is(1));
+        try {
+            subject.execute(parse);
+            fail();
+        } catch (final CommandSyntaxException ex) {
+            assertThat(ex, is(fatal));
+        }
+        verify(fallback, never()).run(any());
+    }
+
+    @Test
+    public void testRelevantLiteralHook() throws Exception {
+        final Command<Object> namespaced = mock(Command.class);
+        when(namespaced.run(any())).thenReturn(7);
+        final Object preferNamespaced = new Object();
+        final CommandDispatcher<Object> dispatcher = new CommandDispatcher<>(new RootCommandNode<Object>() {
+            @Override
+            protected LiteralCommandNode<Object> findRelevantLiteral(final String word, final Object source) {
+                if (source == preferNamespaced && !word.contains(":")) {
+                    final LiteralCommandNode<Object> literal = getLiteral("ns:" + word);
+                    if (literal != null) {
+                        return literal;
+                    }
+                }
+                return super.findRelevantLiteral(word, source);
+            }
+        });
+        dispatcher.register(literal("foo").executes(command));
+        // a literal that also accepts its un-namespaced spelling, like Paper's minecraft: command copies
+        dispatcher.getRoot().addChild(new LiteralCommandNode<Object>("ns:foo", namespaced, s -> true, null, null, false) {
+            @Override
+            public void parse(final StringReader reader, final CommandContextBuilder<Object> contextBuilder) throws CommandSyntaxException {
+                final int start = reader.getCursor();
+                int end = matchLiteral(reader, getLiteral());
+                if (end == -1) {
+                    end = matchLiteral(reader, "foo");
+                }
+                if (end == -1) {
+                    throw CommandSyntaxException.BUILT_IN_EXCEPTIONS.literalIncorrect().createWithContext(reader, getLiteral());
+                }
+                contextBuilder.withNode(this, StringRange.between(start, end));
+            }
+        });
+
+        assertThat(dispatcher.execute("foo", source), is(42));
+        assertThat(dispatcher.execute("foo", preferNamespaced), is(7));
+        assertThat(dispatcher.execute("ns:foo", source), is(7));
+    }
+
+    @Test
+    public void testSmartUsageWithNullSourceIgnoresRequirements() {
+        subject.register(literal("foo").then(literal("bar").requires(s -> false).executes(command)));
+        assertThat(new java.util.ArrayList<>(subject.getSmartUsage(subject.getRoot(), source).values()), equalTo(Collections.singletonList("foo")));
+        assertThat(new java.util.ArrayList<>(subject.getSmartUsage(subject.getRoot(), null).values()), equalTo(Collections.singletonList("foo bar")));
     }
     // PaperMC end
 }

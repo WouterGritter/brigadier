@@ -15,6 +15,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -29,15 +30,16 @@ public abstract class CommandNode<S> implements Comparable<CommandNode<S>> {
     private final Map<String, CommandNode<S>> children = new LinkedHashMap<>();
     private final Map<String, LiteralCommandNode<S>> literals = new LinkedHashMap<>();
     private final Map<String, ArgumentCommandNode<S, ?>> arguments = new LinkedHashMap<>();
-    private final Predicate<S> requirement;
+    private Predicate<S> requirement; // PaperMC - mutable requirement
     private final BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> contextRequirement; // PaperMC - context-aware requirements
     private final CommandNode<S> redirect;
     private final RedirectModifier<S> modifier;
     private final boolean forks;
     private Command<S> command;
+    private Object[] attachments; // PaperMC - node attachments; alternating key/value pairs, lazily allocated
 
     protected CommandNode(final Command<S> command, final Predicate<S> requirement, final CommandNode<S> redirect, final RedirectModifier<S> modifier, final boolean forks) {
-        this(command, requirement, (context, reader) -> true, redirect, modifier, forks); // PaperMC - context-aware requirements
+        this(command, requirement, ArgumentBuilder.defaultContextRequirement(), redirect, modifier, forks); // PaperMC - context-aware requirements
     }
 
     // PaperMC start - context-aware requirements
@@ -123,6 +125,31 @@ public abstract class CommandNode<S> implements Comparable<CommandNode<S>> {
         literals.remove(name);
         arguments.remove(name);
     }
+
+    /**
+     * Removes all direct children of this node.
+     */
+    public void clearChildren() {
+        children.clear();
+        literals.clear();
+        arguments.clear();
+    }
+
+    /**
+     * @deprecated use {@link #removeChildByName(String)}; kept for compatibility with Paper's previous brigadier patches
+     */
+    @Deprecated
+    public void removeCommand(final String name) {
+        removeChildByName(name);
+    }
+
+    /**
+     * @deprecated use {@link #clearChildren()}; kept for compatibility with Paper's previous brigadier patches
+     */
+    @Deprecated
+    public void clearAll() {
+        clearChildren();
+    }
     // PaperMC end - child removal
 
     public void findAmbiguities(final AmbiguityConsumer<S> consumer) {
@@ -174,11 +201,93 @@ public abstract class CommandNode<S> implements Comparable<CommandNode<S>> {
         return requirement;
     }
 
+    // PaperMC start - mutable requirement
+    /**
+     * Replaces this node's requirement, see {@link ArgumentBuilder#requires(Predicate)}.
+     *
+     * <p>Intended for platforms that need to retrofit permission checks onto nodes they did not build themselves.</p>
+     *
+     * @param requirement the new requirement
+     */
+    public void setRequirement(final Predicate<S> requirement) {
+        if (requirement == null) {
+            throw new NullPointerException("requirement");
+        }
+        this.requirement = requirement;
+    }
+    // PaperMC end - mutable requirement
+
     // PaperMC start - context-aware requirements
     public BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> getContextRequirement() {
         return contextRequirement;
     }
     // PaperMC end - context-aware requirements
+
+    // PaperMC start - node attachments
+    /**
+     * Gets the value attached to this node under the given key.
+     *
+     * @param key the key
+     * @param <T> the value type
+     * @return the attached value, or {@code null} if nothing is attached under that key
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getAttachment(final NodeAttachmentKey<T> key) {
+        final Object[] attachments = this.attachments;
+        if (attachments != null) {
+            for (int i = 0; i < attachments.length; i += 2) {
+                if (attachments[i] == key) {
+                    return (T) attachments[i + 1];
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Attaches a value to this node under the given key, replacing any previous value.
+     *
+     * @param key the key
+     * @param value the value to attach, or {@code null} to remove the attachment
+     * @param <T> the value type
+     * @return the previously attached value, or {@code null}
+     * @see NodeAttachmentKey
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T setAttachment(final NodeAttachmentKey<T> key, final T value) {
+        if (key == null) {
+            throw new NullPointerException("key");
+        }
+        final Object[] attachments = this.attachments;
+        if (attachments != null) {
+            for (int i = 0; i < attachments.length; i += 2) {
+                if (attachments[i] == key) {
+                    final T previous = (T) attachments[i + 1];
+                    if (value != null) {
+                        attachments[i + 1] = value;
+                    } else if (attachments.length == 2) {
+                        this.attachments = null;
+                    } else {
+                        final Object[] shrunk = new Object[attachments.length - 2];
+                        System.arraycopy(attachments, 0, shrunk, 0, i);
+                        System.arraycopy(attachments, i + 2, shrunk, i, attachments.length - i - 2);
+                        this.attachments = shrunk;
+                    }
+                    return previous;
+                }
+            }
+        }
+        if (value == null) {
+            return null;
+        }
+        final int oldLength = attachments == null ? 0 : attachments.length;
+        final Object[] grown = attachments == null ? new Object[2] : Arrays.copyOf(attachments, oldLength + 2);
+        grown[oldLength] = key;
+        grown[oldLength + 1] = value;
+        this.attachments = grown;
+        return null;
+    }
+    // PaperMC end - node attachments
 
     public abstract String getName();
 
@@ -219,12 +328,37 @@ public abstract class CommandNode<S> implements Comparable<CommandNode<S>> {
      */
     public Collection<? extends CommandNode<S>> getRelevantNodes(final StringReader input, final S source) {
         if (literals.size() > 0) {
-            final LiteralCommandNode<S> literal = literals.get(peekWord(input));
+            final LiteralCommandNode<S> literal = findRelevantLiteral(peekWord(input), source);
             if (literal != null && literal.canUse(source)) {
                 return Collections.singleton(literal);
             }
         }
         return arguments.values();
+    }
+
+    /**
+     * Selects the literal child that should be considered for the given word, if any.
+     *
+     * <p>The default implementation looks the word up by exact name. Platforms may override this, typically on
+     * their root node, to resolve words differently depending on the source (for example to prefer namespaced
+     * variants of a command for certain sources).</p>
+     *
+     * @param word the next word of the input, without separators
+     * @param source the source parsing the command
+     * @return the literal to consider, or {@code null} to consider the argument children instead
+     */
+    protected LiteralCommandNode<S> findRelevantLiteral(final String word, final S source) {
+        return literals.get(word);
+    }
+
+    /**
+     * Gets the literal child with the given name, if any.
+     *
+     * @param name the literal
+     * @return the literal child, or {@code null}
+     */
+    public LiteralCommandNode<S> getLiteral(final String name) {
+        return literals.get(name);
     }
 
     private static String peekWord(final StringReader input) {

@@ -76,13 +76,30 @@ public class Suggestion implements Comparable<Suggestion> {
             '}';
     }
 
+    // PaperMC start - consistent Suggestion ordering
+    // Upstream's IntegerSuggestion only compares by value against other IntegerSuggestions and falls back to the text
+    // comparison otherwise, which is not a consistent total order once both kinds are mixed and makes sorting unstable.
+    // Integer suggestions sort before text suggestions, by value; everything else compares by text.
+    private static int compare0(final Suggestion lhs, final Suggestion rhs, final java.util.Comparator<String> textComparator) {
+        if (lhs instanceof IntegerSuggestion && rhs instanceof IntegerSuggestion) {
+            return Integer.compare(((IntegerSuggestion) lhs).getValue(), ((IntegerSuggestion) rhs).getValue());
+        } else if (lhs instanceof IntegerSuggestion) {
+            return -1;
+        } else if (rhs instanceof IntegerSuggestion) {
+            return 1;
+        } else {
+            return textComparator.compare(lhs.text, rhs.text);
+        }
+    }
+    // PaperMC end - consistent Suggestion ordering
+
     @Override
     public int compareTo(final Suggestion o) {
-        return text.compareTo(o.text);
+        return compare0(this, o, java.util.Comparator.naturalOrder()); // PaperMC - consistent Suggestion ordering
     }
 
     public int compareToIgnoreCase(final Suggestion b) {
-        return text.compareToIgnoreCase(b.text);
+        return compare0(this, b, String.CASE_INSENSITIVE_ORDER); // PaperMC - consistent Suggestion ordering
     }
 
     public Suggestion expand(final String command, final StringRange range) {

@@ -62,8 +62,20 @@ public class LiteralCommandNode<S> extends CommandNode<S> {
     }
 
     private int parse(final StringReader reader) {
+        return matchLiteral(reader, literal); // PaperMC - extracted to matchLiteral
+    }
+
+    // PaperMC start - reusable literal matching for subclasses
+    /**
+     * Tries to read {@code literal} as a whole word at the reader's cursor.
+     *
+     * @param reader the reader
+     * @param literal the word to match
+     * @return the cursor position after the word, with the reader moved there, or {@code -1} if it did not match,
+     * leaving the reader untouched
+     */
+    protected static int matchLiteral(final StringReader reader, final String literal) {
         final int start = reader.getCursor();
-        // PaperMC start - avoid substring allocation
         if (literal.regionMatches(0, reader.getString(), start, literal.length())) {
             final int end = start + literal.length();
             reader.setCursor(end);
@@ -73,9 +85,9 @@ public class LiteralCommandNode<S> extends CommandNode<S> {
                 reader.setCursor(start);
             }
         }
-        // PaperMC end - avoid substring allocation
         return -1;
     }
+    // PaperMC end - reusable literal matching for subclasses
 
     @Override
     public CompletableFuture<Suggestions> listSuggestions(final CommandContext<S> context, final SuggestionsBuilder builder) {

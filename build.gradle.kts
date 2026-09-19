@@ -5,6 +5,7 @@ plugins {
 
 val vanillaVersion = providers.gradleProperty("vanillaVersion").get()
 val forkRevision = providers.gradleProperty("forkRevision").get()
+val adventureVersion = "5.2.0"
 val isSnapshot = providers.gradleProperty("snapshot").map(String::toBoolean).getOrElse(false)
 version = "$vanillaVersion+papermc.$forkRevision" + if (isSnapshot) "-SNAPSHOT" else ""
 description = "PaperMC's fork of Mojang's brigadier command parser & dispatcher, shared by Paper and Velocity."
@@ -22,6 +23,10 @@ repositories {
 }
 
 dependencies {
+    // CommandSyntaxException implements ComponentMessageThrowable (adventure-api)
+    api(platform("net.kyori:adventure-bom:$adventureVersion"))
+    api("net.kyori:adventure-api")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.hamcrest:hamcrest:2.2")
     testImplementation("org.mockito:mockito-core:5.22.0")
@@ -40,6 +45,7 @@ tasks.withType<Javadoc>().configureEach {
     options.encoding = "UTF-8"
     (options as StandardJavadocDocletOptions).apply {
         addStringOption("Xdoclint:none", "-quiet")
+        links("https://jd.papermc.io/adventure/$adventureVersion/")
     }
 }
 

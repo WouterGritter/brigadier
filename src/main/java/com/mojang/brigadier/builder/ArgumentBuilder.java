@@ -17,10 +17,41 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 public abstract class ArgumentBuilder<S, T extends ArgumentBuilder<S, T>> {
+    // PaperMC start - default requirement singletons
+    private static final Predicate<Object> DEFAULT_REQUIREMENT = s -> true;
+    private static final BiPredicate<Object, ImmutableStringReader> DEFAULT_CONTEXT_REQUIREMENT = (context, reader) -> true;
+
+    /**
+     * The requirement a node has when none was set with {@link #requires(Predicate)}: it always passes.
+     *
+     * <p>This is a singleton, so platforms can use an identity check against {@link CommandNode#getRequirement()}
+     * to find out whether a node ever had a requirement configured.</p>
+     *
+     * @param <S> the source type
+     * @return the default requirement
+     */
+    @SuppressWarnings("unchecked")
+    public static <S> Predicate<S> defaultRequirement() {
+        return (Predicate<S>) DEFAULT_REQUIREMENT;
+    }
+
+    /**
+     * The context requirement a node has when none was set with {@link #requiresWithContext(BiPredicate)}: it always passes.
+     *
+     * @param <S> the source type
+     * @return the default context requirement
+     * @see #defaultRequirement()
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <S> BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> defaultContextRequirement() {
+        return (BiPredicate) DEFAULT_CONTEXT_REQUIREMENT;
+    }
+    // PaperMC end - default requirement singletons
+
     private final RootCommandNode<S> arguments = new RootCommandNode<>();
     private Command<S> command;
-    private Predicate<S> requirement = s -> true;
-    private BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> contextRequirement = (context, reader) -> true; // PaperMC - context-aware requirements
+    private Predicate<S> requirement = defaultRequirement(); // PaperMC - default requirement singletons
+    private BiPredicate<CommandContextBuilder<S>, ImmutableStringReader> contextRequirement = defaultContextRequirement(); // PaperMC - context-aware requirements
     private CommandNode<S> target;
     private RedirectModifier<S> modifier = null;
     private boolean forks;

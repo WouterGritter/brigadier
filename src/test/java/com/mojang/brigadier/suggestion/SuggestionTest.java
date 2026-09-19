@@ -7,6 +7,7 @@ import com.mojang.brigadier.context.StringRange;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 public class SuggestionTest {
@@ -81,4 +82,28 @@ public class SuggestionTest {
         final Suggestion suggestion = new Suggestion(StringRange.between(6, 11), "strangers");
         assertThat(suggestion.expand("Hello world!", StringRange.between(0, 12)), equalTo(new Suggestion(StringRange.between(0, 12), "Hello strangers!")));
     }
+
+    // PaperMC start
+    @Test
+    public void testIntegerAndTextSuggestionsSortConsistently() {
+        final StringRange range = StringRange.at(0);
+        final Suggestion text = new Suggestion(range, "5");
+        final Suggestion text2 = new Suggestion(range, "b");
+        final IntegerSuggestion ten = new IntegerSuggestion(range, 10);
+        final IntegerSuggestion two = new IntegerSuggestion(range, 2);
+
+        // integers sort before text, by value, in both directions
+        assertThat(Integer.signum(ten.compareTo(text)), is(-1));
+        assertThat(Integer.signum(text.compareTo(ten)), is(1));
+        assertThat(Integer.signum(two.compareTo(ten)), is(-1));
+        assertThat(Integer.signum(ten.compareTo(two)), is(1));
+        assertThat(Integer.signum(text.compareTo(text2)), is(-1));
+        assertThat(Integer.signum(ten.compareToIgnoreCase(text)), is(-1));
+        assertThat(Integer.signum(text.compareToIgnoreCase(ten)), is(1));
+
+        final java.util.List<Suggestion> sorted = new java.util.ArrayList<>(java.util.Arrays.asList(text2, ten, text, two));
+        java.util.Collections.sort(sorted);
+        assertThat(sorted, equalTo(java.util.Arrays.asList(two, ten, text, text2)));
+    }
+    // PaperMC end
 }

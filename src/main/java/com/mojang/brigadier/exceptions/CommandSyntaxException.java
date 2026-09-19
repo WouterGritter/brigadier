@@ -4,11 +4,23 @@
 package com.mojang.brigadier.exceptions;
 
 import com.mojang.brigadier.Message;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentLike;
+import net.kyori.adventure.util.ComponentMessageThrowable;
 
-public class CommandSyntaxException extends Exception {
+import java.util.function.Function;
+
+public class CommandSyntaxException extends Exception implements ComponentMessageThrowable { // PaperMC - adventure component messages
     public static final int CONTEXT_AMOUNT = 10;
     public static boolean ENABLE_COMMAND_STACK_TRACES = true;
     public static BuiltInExceptionProvider BUILT_IN_EXCEPTIONS = new BuiltInExceptions();
+    // PaperMC start - adventure component messages
+    /**
+     * Converts a {@link Message} to an adventure {@link Component} for {@link #componentMessage()}.
+     */
+    public static Function<Message, Component> MESSAGE_TO_COMPONENT = message ->
+        message instanceof ComponentLike ? ((ComponentLike) message).asComponent() : Component.text(message.getString());
+    // PaperMC end - adventure component messages
 
     private final CommandExceptionType type;
     private final Message message;
@@ -73,4 +85,32 @@ public class CommandSyntaxException extends Exception {
     public int getCursor() {
         return cursor;
     }
+
+    // PaperMC start - non-recoverable exceptions abort parsing
+    /**
+     * Whether the dispatcher may recover from this exception by trying sibling nodes.
+     *
+     * <p>Subclasses can return {@code false} for errors that make the whole input invalid, no matter which node parses
+     * it (for example an input that is too deeply nested to be safe). The dispatcher then stops parsing immediately
+     * and reports this exception in {@link com.mojang.brigadier.ParseResults#getExceptions()}.</p>
+     *
+     * @return {@code true} (the default) if parsing may continue with other nodes
+     */
+    public boolean isRecoverable() {
+        return true;
+    }
+    // PaperMC end - non-recoverable exceptions abort parsing
+
+    // PaperMC start - adventure component messages
+    /**
+     * Gets the raw message of this exception as an adventure component, see {@link #MESSAGE_TO_COMPONENT}.
+     * Unlike {@link #getMessage()}, this does not include the input context.
+     *
+     * @return the message as a component
+     */
+    @Override
+    public Component componentMessage() {
+        return MESSAGE_TO_COMPONENT.apply(this.message);
+    }
+    // PaperMC end - adventure component messages
 }

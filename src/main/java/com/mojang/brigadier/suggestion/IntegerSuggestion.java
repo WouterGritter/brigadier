@@ -51,16 +51,15 @@ public class IntegerSuggestion extends Suggestion {
                 '}';
     }
 
+    // PaperMC start - consistent Suggestion ordering; handled by Suggestion#compareTo
     @Override
     public int compareTo(final Suggestion o) {
-        if (o instanceof IntegerSuggestion) {
-            return Integer.compare(value, ((IntegerSuggestion) o).value);
-        }
         return super.compareTo(o);
     }
 
     @Override
     public int compareToIgnoreCase(final Suggestion b) {
-        return compareTo(b);
+        return super.compareToIgnoreCase(b);
     }
+    // PaperMC end - consistent Suggestion ordering
 }

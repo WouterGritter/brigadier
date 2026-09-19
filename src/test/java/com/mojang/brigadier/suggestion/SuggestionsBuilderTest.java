@@ -84,6 +84,7 @@ public class SuggestionsBuilderTest {
     public void sort_mixed() {
         Suggestions result = builder.suggest("11").suggest("22").suggest("33").suggest("a").suggest("b").suggest("c").suggest(2).suggest(4).suggest(6).suggest(8).suggest(30).suggest(32).suggest("3a").suggest("a3").build();
         List<String> actual = result.getList().stream().map(Suggestion::getText).collect(Collectors.toList());
-        assertThat(actual, equalTo(Lists.newArrayList( "11", "2", "22", "33", "3a", "4", "6", "8", "30", "32", "a", "a3", "b", "c")));
+        // PaperMC - integer suggestions now consistently sort before text suggestions, by value
+        assertThat(actual, equalTo(Lists.newArrayList( "2", "4", "6", "8", "30", "32", "11", "22", "33", "3a", "a", "a3", "b", "c")));
     }
 }

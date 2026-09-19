@@ -320,6 +320,11 @@ public class CommandDispatcher<S> {
                 }
                 errors.put(child, ex);
                 reader.setCursor(cursor);
+                // PaperMC start - non-recoverable exceptions abort parsing
+                if (!ex.isRecoverable()) {
+                    return new ParseResults<>(contextSoFar, originalReader, errors);
+                }
+                // PaperMC end - non-recoverable exceptions abort parsing
                 continue;
             }
 
@@ -464,7 +469,7 @@ public class CommandDispatcher<S> {
     }
 
     private String getSmartUsage(final CommandNode<S> node, final S source, final boolean optional, final boolean deep) {
-        if (!node.canUse(source)) {
+        if (source != null && !node.canUse(source)) { // PaperMC - allow a null source to list all usages
             return null;
         }
 
@@ -478,7 +483,7 @@ public class CommandDispatcher<S> {
                 final String redirect = node.getRedirect() == root ? "..." : "-> " + node.getRedirect().getUsageText();
                 return self + ARGUMENT_SEPARATOR + redirect;
             } else {
-                final Collection<CommandNode<S>> children = node.getChildren().stream().filter(c -> c.canUse(source)).collect(Collectors.toList());
+                final Collection<CommandNode<S>> children = node.getChildren().stream().filter(c -> source == null || c.canUse(source)).collect(Collectors.toList()); // PaperMC - allow a null source to list all usages
                 if (children.size() == 1) {
                     final String usage = getSmartUsage(children.iterator().next(), source, childOptional, childOptional);
                     if (usage != null) {
@@ -550,24 +555,26 @@ public class CommandDispatcher<S> {
         int i = 0;
         for (final CommandNode<S> node : parent.getChildren()) {
             CompletableFuture<Suggestions> future = Suggestions.empty();
+            // PaperMC start - don't suggest root commands the source can't use
+            if (parent != this.root || node.canUse(context.getSource())) {
             try {
                 future = node.listSuggestions(nodeBeforeCursor.context.build(truncatedInput), new SuggestionsBuilder(truncatedInput, truncatedInputLowerCase, start));
             } catch (final CommandSyntaxException ignored) {
             }
+            }
+            // PaperMC end - don't suggest root commands the source can't use
             futures[i++] = future;
         }
 
-        // PaperMC start - always complete the returned future, even if some suggestion futures fail
-        return CompletableFuture.allOf(futures).handle((voidResult, exception) -> {
+        // PaperMC start - always complete the returned future, propagating failures
+        return CompletableFuture.allOf(futures).thenApply(voidResult -> {
             final List<Suggestions> suggestions = new ArrayList<>();
             for (final CompletableFuture<Suggestions> future : futures) {
-                if (!future.isCompletedExceptionally()) {
-                    suggestions.add(future.join());
-                }
+                suggestions.add(future.join());
             }
             return Suggestions.merge(fullInput, suggestions);
         });
-        // PaperMC end - always complete the returned future, even if some suggestion futures fail
+        // PaperMC end - always complete the returned future, propagating failures
     }
 
     /**
